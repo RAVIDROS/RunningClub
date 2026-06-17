@@ -4,6 +4,7 @@ from datetime import datetime
 import gspread
 from google.oauth2.service_account import Credentials
 import math
+import json
 from streamlit_js_eval import streamlit_js_eval
 
 # הגדרת מבנה עמוד ועיצוב רטרו-ספורטיבי נקי
@@ -15,37 +16,23 @@ st.markdown("""
     @import url('https://fonts.googleapis.com/css2?family=Assistant:wght=300;400;700&display=swap');
     * { font-family: 'Assistant', sans-serif; direction: rtl; }
     .stTabs [data-baseweb="tab-list"] { gap: 10px; }
-    .stTabs [data-baseweb="tab"] {
-        background-color: #f0f2f6;
-        border-radius: 8px;
-        padding: 10px 20px;
-        font-weight: bold;
-    }
-    .stTabs [aria-selected="true"] { 
-        background-color: #0066cc !important;
-        color: white !important;
-    }
-    div.stButton > button {
-        border-radius: 12px;
-        font-weight: bold;
-        font-size: 16px;
-        padding: 12px;
-        transition: all 0.3s;
-    }
+    .stTabs [data-baseweb="tab"] { background-color: #f0f2f6; border-radius: 8px; padding: 10px 20px; font-weight: bold; }
+    .stTabs [aria-selected="true"] { background-color: #0066cc !important; color: white !important; }
+    div.stButton > button { border-radius: 12px; font-weight: bold; font-size: 16px; padding: 12px; transition: all 0.3s; }
     </style>
 """, unsafe_allow_html=True)
 
 # --- אתחול הגדרות ה-GPS בזיכרון המערכת (ערכי ברירת מחדל) ---
 if 'target_lat' not in st.session_state:
-    st.session_state.target_lat = 32.085300  # ברירת מחדל התחלתית
+    st.session_state.target_lat = 32.085300
 if 'target_lon' not in st.session_state:
     st.session_state.target_lon = 34.781800
 if 'max_distance' not in st.session_state:
-    st.session_state.max_distance = 150  # רדיוס מותר במטרים
+    st.session_state.max_distance = 150
 
-# פונקציה לחישוב מרחק במטרים בין 2 נקודות GPS (נוסחת האברסין)
+# פונקציה לחישוב מרחק במטרים בין 2 נקודות GPS
 def calculate_distance(lat1, lon1, lat2, lon2):
-    R = 6371000  # רדיוס כדור הארץ במטרים
+    R = 6371000
     phi1 = math.radians(lat1)
     phi2 = math.radians(lat2)
     delta_phi = math.radians(lat2 - lat1)
@@ -54,12 +41,20 @@ def calculate_distance(lat1, lon1, lat2, lon2):
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     return R * c
 
-# --- פונקציית התחברות ל-Google Sheets ---
+# --- פונקציית התחברות ל-Google Sheets (מותאם לענן) ---
 @st.cache_resource
 def init_gsheets():
     try:
         scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-        creds = Credentials.from_service_account_file("credentials.json", scopes=scopes)
+        
+        # בדיקה אם אנחנו רצים בענן ויש סודות זמינים
+        if "google_json" in st.secrets:
+            creds_dict = json.loads(st.secrets["google_json"])
+            creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+        else:
+            # גיבוי לסביבה המקומית על המחשב
+            creds = Credentials.from_service_account_file("credentials.json", scopes=scopes)
+            
         client = gspread.authorize(creds)
         return client.open("RunningClub_DB").sheet1
     except Exception as e:
@@ -67,17 +62,13 @@ def init_gsheets():
 
 sheet = init_gsheets()
 
-# --- אתחול בסיס הנתונים הזמני בזיכרון המערכת ---
 if 'runners_db' not in st.session_state:
     st.session_state.runners_db = {}
 
-# רשימת הרצים הרשמית של המועדון
 RUNNERS_LIST = ["אבי כהן", "דנה לוי", "יוסי ישראלי", "מיכל גולן", "רוני לוי", "עידו ברק"]
 
-# --- בדיקת פרמטרים ב-URL (מנגנון ה-QR קוד) ---
 url_params = st.query_params
 suggested_runner = url_params.get("runner", "בחר שם...")
-
 if suggested_runner in [r.replace(" ", "_") for r in RUNNERS_LIST]:
     suggested_runner = suggested_runner.replace("_", " ")
 
@@ -85,12 +76,12 @@ st.markdown("<h1 style='text-align: center; color: #111;'>🏃‍♂️ RunningC
 st.markdown("<p style='text-align: center; color: #666;'>מערכת חכמה לניהול ורישום זמני ריצה</p>", unsafe_allow_html=True)
 
 if not sheet:
-    st.warning("⚠️ חיבור לענן חסר (credentials.json לא נמצא או לא תקין). הנתונים נשמרים זמנית בלבד.")
+    st.warning("⚠️ חיבור לענן חסר. הנתונים נשמרים זמנית בלבד.")
 
 tab_runners, tab_admin = st.tabs(["📱 אזור הרצים", "📊 דשבורד מנהל"])
 
 # ==========================================
-# 📱 לשונית 1: ממשק הרצים (מותאם למובייל)
+# 📱 לשונית 1: ממשק הרצים
 # ==========================================
 with tab_runners:
     st.subheader("⏱️ רישום אישי")
@@ -100,18 +91,14 @@ with tab_runners:
 
     if current_runner != "בחר שם...":
         if current_runner not in st.session_state.runners_db:
-            st.session_state.runners_db[current_runner] = {
-                "start": None, "laps": [], "end": None, "duration": None
-            }
+            st.session_state.runners_db[current_runner] = {"start": None, "laps": [], "end": None, "duration": None}
         
         runner_data = st.session_state.runners_db[current_runner]
         
-        # --- מנגנון אימות מיקום בזמן אמת ---
         location_allowed = False
         with st.expander("📍 בדיקת נוכחות במסלול (חובה)", expanded=True):
             st.write("המערכת דורשת אימות מיקום כדי לוודא הגעה למתחם.")
             
-            # שימוש בשם הרץ ובגרסת המיקום הנוכחית כמפתח יציב למניעת לולאה אינסופית
             runner_safe_key = current_runner.replace(" ", "_")
             loc = streamlit_js_eval(data_of='geolocation', key=f"geo_static_{runner_safe_key}")
             
@@ -128,7 +115,6 @@ with tab_runners:
             else:
                 st.info("🔄 ממתין לקבלת נתוני GPS מהמכשיר... אנא ודא שאישרת גישת מיקום בדפדפן.")
         
-        # תצוגת כפתורי הניהול האישיים
         if runner_data["start"] is None:
             st.info("🏃‍♂️ מוכן לזינוק? כפתור ההתחלה ייפתח ברגע שהמיקום יאומת.")
             if st.button("🟢 התחל ריצה", use_container_width=True, disabled=not location_allowed):
@@ -156,7 +142,6 @@ with tab_runners:
                 final_duration_str = str(duration).split('.')[0]
                 st.session_state.runners_db[current_runner]["duration"] = duration
                 
-                # שמירה ל-Google Sheets
                 if sheet:
                     try:
                         row_data = [
@@ -182,15 +167,13 @@ with tab_runners:
                 st.write("ריכוז זמני ההקפות שלך:", runner_data["laps"])
 
 # ==========================================
-# 📊 לשונית 2: דשבורד מנהל + הגדרות מובנות
+# 📊 לשונית 2: דשבורד מנהל
 # ==========================================
 with tab_admin:
     st.subheader("🔒 ניהול ובקרה")
     admin_pass = st.text_input("סיסמת מנהל:", type="password")
     
     if admin_pass == "1234":
-        
-        # --- הגדרת נקודות הציון של המסלול ישירות מתוך הממשק ---
         st.markdown("---")
         st.markdown("### ⚙️ הגדרת מיקום המסלול (GPS)")
         
@@ -211,7 +194,6 @@ with tab_admin:
             
         st.markdown("---")
         
-        # עיבוד הנתונים לטבלה מסודרת
         records = []
         for name, data in st.session_state.runners_db.items():
             if data["start"] is not None:
@@ -238,7 +220,6 @@ with tab_admin:
             df_leaderboard = df.sort_values(by="שניות נטו", ascending=True).drop(columns=["שניות נטו"])
             st.dataframe(df_leaderboard, use_container_width=True, hide_index=True)
             
-            # הצגת גרף מובנה ויציב שלא קורס
             df_finished = df[df["שניות נטו"].notna()]
             if not df_finished.empty:
                 st.markdown("### 📈 התפלגות זמני סיום")
