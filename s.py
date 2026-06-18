@@ -8,130 +8,197 @@ import smtplib
 from email.message import EmailMessage
 import ssl
 
-# הגדרת עמוד - פריסה רחבה יותר לאסתטיקה
+# הגדרת עמוד
 st.set_page_config(page_title="RunningClub Pro", page_icon="🏃‍♂️", layout="centered")
 
-# --- קסם העיצוב (CSS) ---
+# --- ארכיטקטורת עיצוב פרימיום למובייל (CSS) ---
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Assistant:wght=300;400;600;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Assistant:wght=300;400;600;700;800&display=swap');
     
-    /* הגדרות כלליות */
+    /* הגדרת רקע האפליקציה וצמצום שוליים למובייל */
+    .stApp {
+        background-color: #0F172A !important;
+        color: #F8FAFC !important;
+    }
+    .block-container {
+        padding-top: 1.5rem !important;
+        padding-bottom: 2rem !important;
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+        max-width: 100% !important;
+    }
+    
+    /* החבאת אלמנטים של מערכת השרת למראה אפליקציה נקייה */
+    #MainMenu, header, footer { visibility: hidden !important; }
+    
+    /* גופנים וכיוון עברית */
     * { font-family: 'Assistant', sans-serif; direction: rtl; }
     
-    /* עיצוב כותרת ראשית */
-    h1 {
-        background: -webkit-linear-gradient(45deg, #1e3a8a, #3b82f6);
+    /* כותרת ראשית מעוצבת ספורט-אקסטרים */
+    .main-title {
+        text-align: center;
+        background: linear-gradient(135deg, #38BDF8, #3B82F6);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         font-weight: 800;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.05);
+        font-size: 2.2rem;
+        margin-bottom: 5px;
+        letter-spacing: -0.5px;
+    }
+    .sub-title {
+        text-align: center;
+        color: #94A3B8;
+        font-size: 16px;
+        margin-bottom: 25px;
+        font-weight: 400;
     }
     
-    /* עיצוב הלשוניות (Tabs) */
-    .stTabs [data-baseweb="tab-list"] { gap: 15px; border-bottom: none; justify-content: center; margin-bottom: 20px;}
+    /* עיצוב לשוניות מובייל עגולות חלקות */
+    .stTabs [data-baseweb="tab-list"] { 
+        gap: 12px; 
+        border-bottom: none; 
+        justify-content: center; 
+        margin-bottom: 25px;
+    }
     .stTabs [data-baseweb="tab"] { 
-        background-color: #ffffff; 
-        border-radius: 30px; 
-        padding: 10px 25px; 
-        font-weight: 600;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-        border: 1px solid #e5e7eb;
-        transition: all 0.3s ease;
+        background-color: #1E293B; 
+        border-radius: 40px; 
+        padding: 12px 28px; 
+        font-weight: 700;
+        color: #94A3B8;
+        border: 1px solid #334155;
+        transition: all 0.25s ease;
     }
     .stTabs [aria-selected="true"] { 
-        background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
-        color: white !important;
+        background: linear-gradient(135deg, #3B82F6, #1D4ED8) !important;
+        color: #FFFFFF !important;
         border: none;
-        box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.3);
+        box-shadow: 0 8px 20px rgba(59, 130, 246, 0.4);
     }
     
-    /* עיצוב כפתורים מרהיב */
-    div.stButton > button { 
-        border-radius: 50px; 
-        font-weight: bold; 
-        font-size: 18px; 
-        padding: 15px 30px; 
-        border: none;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        background-color: #ffffff;
-    }
-    div.stButton > button:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    /* עיצוב כרטיסיות צפות (Cards) לאלמנטים השונים */
+    .custom-card {
+        background-color: #1E293B;
+        border-radius: 24px;
+        padding: 22px;
+        border: 1px solid #334155;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        margin-bottom: 20px;
     }
     
-    /* עיצוב תיבות הקלט */
-    .stTextInput input, .stSelectbox > div > div {
-        border-radius: 15px;
-        border: 2px solid #e5e7eb;
-        padding: 12px;
-        transition: border-color 0.3s;
+    /* עיצוב תיבות הטקסט והקלטים */
+    .stTextInput input {
+        background-color: #0F172A !important;
+        color: #F8FAFC !important;
+        border-radius: 16px !important;
+        border: 2px solid #334155 !important;
+        padding: 14px !important;
+        font-size: 16px !important;
+        transition: all 0.3s;
     }
     .stTextInput input:focus {
-        border-color: #3b82f6;
-        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
-    }
-
-    /* עיצוב כרטיסיות נתונים (KPIs) */
-    [data-testid="metric-container"] {
-        background-color: #ffffff;
-        border-radius: 20px;
-        padding: 20px;
-        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
-        border: 1px solid #f3f4f6;
-        text-align: center;
-        transition: transform 0.3s ease;
-    }
-    [data-testid="metric-container"]:hover {
-        transform: translateY(-5px);
-    }
-    [data-testid="stMetricValue"] { 
-        font-size: 2.5rem; 
-        font-weight: 800;
-        color: #1e40af; 
+        border-color: #3B82F6 !important;
+        box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15) !important;
     }
     
-    /* עיצוב טבלאות מודרני */
+    /* כפתורי ענק מעוצבים למובייל בריצה */
+    div.stButton > button { 
+        border-radius: 20px; 
+        font-weight: 700; 
+        font-size: 18px; 
+        padding: 16px 20px; 
+        border: none;
+        width: 100% !important;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        text-transform: uppercase;
+    }
+    
+    /* כפתור התחלה - ירוק זוהר */
+    div.stButton > button:contains("🟢") {
+        background: linear-gradient(135deg, #10B981, #059669) !important;
+        color: white !important;
+        box-shadow: 0 6px 20px rgba(16, 185, 129, 0.3) !important;
+    }
+    
+    /* כפתור הקפה - צהוב ספורטיבי */
+    div.stButton > button:contains("🟡") {
+        background: linear-gradient(135deg, #F59E0B, #D97706) !important;
+        color: white !important;
+        box-shadow: 0 6px 20px rgba(245, 158, 11, 0.2) !important;
+    }
+    
+    /* כפתור סיום - אדום אגרסיבי */
+    div.stButton > button:contains("🔴") {
+        background: linear-gradient(135deg, #EF4444, #DC2626) !important;
+        color: white !important;
+        box-shadow: 0 6px 20px rgba(239, 68, 68, 0.3) !important;
+    }
+    
+    div.stButton > button:active {
+        transform: scale(0.96);
+    }
+    
+    /* עיצוב כרטיסיות נתונים עליונות (KPIs) במנהל */
+    [data-testid="metric-container"] {
+        background-color: #1E293B;
+        border-radius: 20px;
+        padding: 16px;
+        border: 1px solid #334155;
+        text-align: center;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    [data-testid="stMetricValue"] { 
+        font-size: 2.2rem !important; 
+        font-weight: 800 !important;
+        color: #38BDF8 !important; 
+    }
+    [data-testid="stMetricLabel"] {
+        color: #94A3B8 !important;
+        font-size: 14px !important;
+    }
+    
+    /* עיצוב טבלאות פרימיום חסין קטיעות למובייל */
+    .table-container {
+        overflow-x: auto;
+        border-radius: 18px;
+        border: 1px solid #334155;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+        margin-top: 15px;
+    }
     table { 
         width: 100% !important; 
         border-collapse: collapse; 
-        border-radius: 15px; 
-        overflow: hidden; 
-        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
-        margin-top: 15px;
-        background-color: white;
+        background-color: #1E293B;
     }
     thead th { 
-        background: #1e3a8a !important; 
-        color: white !important; 
-        padding: 15px !important; 
+        background-color: #0F172A !important; 
+        color: #38BDF8 !important; 
+        padding: 16px 12px !important; 
         text-align: right !important; 
-        font-weight: 600;
-        font-size: 16px;
+        font-weight: 700;
+        font-size: 15px;
+        border-bottom: 2px solid #334155;
     }
     tbody td { 
-        padding: 15px !important; 
-        border-bottom: 1px solid #f3f4f6 !important; 
-        color: #374151 !important;
-        font-size: 16px;
+        padding: 16px 12px !important; 
+        border-bottom: 1px solid #334155 !important; 
+        color: #E2E8F0 !important;
+        font-size: 15px;
+        white-space: nowrap;
     }
-    tbody tr:hover { 
-        background-color: #f8fafc !important; 
-    }
+    tbody tr:last-child td { border-bottom: none; }
     
-    /* תיקון צבעים למצב Dark Mode (כדי שהטקסט בטבלה יישאר קריא) */
-    @media (prefers-color-scheme: dark) {
-        tbody td { color: #f3f4f6 !important; }
-        table { background-color: #1f2937; }
-        tbody tr:hover { background-color: #374151 !important; }
-        [data-testid="metric-container"], .stTabs [data-baseweb="tab"] { background-color: #1f2937; border-color: #374151;}
-        div.stButton > button { background-color: #1f2937; border: 1px solid #374151; color: white;}
+    /* עיצוב הודעות מערכת */
+    .stAlert {
+        border-radius: 16px !important;
+        background-color: #1E293B !important;
+        border: 1px solid #334155 !important;
     }
     </style>
 """, unsafe_allow_html=True)
 
+# --- פונקציה לשליחת אימייל ---
 def send_email_notification(runner_name, duration, laps):
     try:
         sender_email = st.secrets.get("EMAIL_SENDER")
@@ -194,8 +261,9 @@ sheet = init_gsheets()
 if 'runners_db' not in st.session_state:
     st.session_state.runners_db = {}
 
-st.markdown("<br><h1 style='text-align: center;'>🏃‍♂️ RunningClub Pro</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: #6b7280; font-size: 18px; margin-bottom: 30px;'>מערכת חכמה לניהול ורישום זמני ריצה</p>", unsafe_allow_html=True)
+# מבנה עליון חלק ואסתטי
+st.markdown("<div class='main-title'>RunningClub Pro</div>", unsafe_allow_html=True)
+st.markdown("<div class='sub-title'>מערכת חכמה לניהול ואימוני ריצה</div>", unsafe_allow_html=True)
 
 if not sheet:
     st.error("⚠️ חיבור לענן נכשל. הנתונים לא יישמרו באקסל. ודא שהסודות שמורים ב-Streamlit.")
@@ -203,9 +271,11 @@ if not sheet:
 tab_runners, tab_admin = st.tabs(["📱 אזור הרצים", "📊 דשבורד מנהל"])
 
 with tab_runners:
-    st.markdown("<h3 style='color: #1e3a8a;'>⏱️ רישום אישי לזינוק</h3>", unsafe_allow_html=True)
+    # עטיפת ממשק הרץ בתוך קופסה מעוצבת
+    st.markdown("<div class='custom-card'>", unsafe_allow_html=True)
+    st.markdown("<h4 style='color: #38BDF8; margin-top:0; margin-bottom:15px;'>⏱️ רישום וזינוק אישי</h4>", unsafe_allow_html=True)
     
-    current_runner_input = st.text_input("📝 הקלד/י את שמך המלא ולחץ/י Enter:")
+    current_runner_input = st.text_input("הקלד/י שם מלא ולחץ/י Enter במסך המקלדת:")
     current_runner = current_runner_input.strip()
 
     if current_runner:
@@ -222,9 +292,7 @@ with tab_runners:
                 st.rerun()
                 
         elif runner_data["start"] is not None and runner_data["end"] is None:
-            st.success(f"⏱️ אתה על המסלול! זינקת בשעה: {runner_data['start'].strftime('%H:%M:%S')}")
-            st.info("💡 הקפד להשאיר את השם שלך מוקלד בתיבה כדי לראות את כפתור הסיום.")
-            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown(f"<div style='background-color: rgba(59,130,246,0.1); border: 1px solid #3B82F6; padding:12px; border-radius:12px; color:#38BDF8; text-align:center; font-weight:600; margin-bottom:15px;'>⏱️ אתה על המסלול! זינוק: {runner_data['start'].strftime('%H:%M:%S')}</div>", unsafe_allow_html=True)
             
             if st.button("🟡 רשום הקפה / זמן ביניים", use_container_width=True):
                 lap_time = datetime.now()
@@ -233,9 +301,10 @@ with tab_runners:
                 st.toast(f"הקפה נרשמה: {str(lap_duration).split('.')[0]}", icon="⏱️")
             
             if runner_data["laps"]:
-                st.write("זמני הביניים שלך:", runner_data["laps"])
+                st.markdown("<p style='color:#94A3B8; margin-top:10px; font-size:14px;'>זמני ביניים שנרשמו:</p>", unsafe_allow_html=True)
+                st.write(runner_data["laps"])
                 
-            st.markdown("<br><hr><br>", unsafe_allow_html=True)
+            st.markdown("<br><hr style='border-color:#334155;'><br>", unsafe_allow_html=True)
             
             if st.button("🔴 סיימתי ריצה! (עצור שעון)", use_container_width=True, disabled=not location_allowed):
                 end_time = datetime.now()
@@ -267,14 +336,16 @@ with tab_runners:
         else:
             final_anim = str(runner_data['duration']).split('.')[0]
             st.markdown("<br>", unsafe_allow_html=True)
-            st.markdown(f"<div style='background-color: #d1fae5; padding: 20px; border-radius: 15px; text-align:center; border: 2px solid #34d399;'><h2 style='color: #065f46; margin:0;'>כל הכבוד! סיימת בהצלחה! 🎉</h2><h1 style='color: #047857; font-size: 3rem; margin-top: 10px;'>{final_anim}</h1></div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='background: linear-gradient(135deg, #064E3B, #065F46); padding: 25px; border-radius: 20px; text-align:center; border: 1px solid #10B981;'><h2 style='color: #34D399; margin:0; font-weight:700;'>כל הכבוד! סיימת בהצלחה! 🎉</h2><h1 style='color: #FFFFFF; font-size: 3.5rem; margin-top: 10px; font-weight:800;'>{final_anim}</h1></div>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
 with tab_admin:
-    st.markdown("<h3 style='color: #1e3a8a;'>🔒 מרכז שליטה ובקרה</h3>", unsafe_allow_html=True)
-    admin_pass = st.text_input("סיסמת מנהל (הזן ולחץ Enter):", type="password")
+    st.markdown("<div class='custom-card'>", unsafe_allow_html=True)
+    st.markdown("<h4 style='color: #38BDF8; margin-top:0; margin-bottom:15px;'>🔒 אבטחת מנהל</h4>", unsafe_allow_html=True)
+    admin_pass = st.text_input("סיסמת מנהל:", type="password")
+    st.markdown("</div>", unsafe_allow_html=True)
     
     if admin_pass == "1234":
-        st.markdown("<br>", unsafe_allow_html=True)
         records = []
         for name, data in st.session_state.runners_db.items():
             if data["start"] is not None:
@@ -282,7 +353,7 @@ with tab_admin:
                 records.append({
                     "שם הרץ": name,
                     "שעת התחלה": data["start"].strftime("%H:%M:%S"),
-                    "שעת סיום": data["end"].strftime("%H:%M:%S") if data["end"] else "🏃‍♂️ רץ כעת...",
+                    "שעת סיום": data["end"].strftime("%H:%M:%S") if data["end"] else "🏃‍♂️ על המסלול",
                     "זמן נטו": str(data["duration"]).split('.')[0] if data["duration"] else "-",
                     "הקפות": len(data["laps"]),
                     "_sort_val": total_sec 
@@ -293,28 +364,35 @@ with tab_admin:
             df_finished = df[df["זמן נטו"] != "-"].sort_values(by="_sort_val").drop(columns=["_sort_val"])
             df_running = df[df["זמן נטו"] == "-"].drop(columns=["_sort_val"])
             
+            # קוביות מדדים יפהפיות
+            st.markdown("<br>", unsafe_allow_html=True)
             c1, c2, c3 = st.columns(3)
             c1.metric("סה״כ זינקו", len(df))
             c2.metric("סיימו ריצה", len(df_finished))
-            c3.metric("עדיין במסלול", len(df_running))
+            c3.metric("במסלול כעת", len(df_running))
             
-            st.markdown("<br><h4 style='color: #1e40af;'>🏆 טבלת תוצאות (מוינו לפי המהיר ביותר)</h4>", unsafe_allow_html=True)
+            # טבלאות מותאמות מובייל בתוך קונטיינר גלול
             if not df_finished.empty:
-                df_finished = df_finished.rename(columns={"זמן נטו": "⏱️ זמן נטו", "הקפות": "🔄 הקפות"})
+                st.markdown("<br><h4 style='color: #38BDF8; margin-bottom:5px;'>🏆 טבלת תוצאות (לפי המהיר ביותר)</h4>", unsafe_allow_html=True)
+                df_finished = df_finished.rename(columns={"זמן נטו": "⏱️ נטו", "הקפות": "🔄 הקפות"})
                 df_finished.set_index("שם הרץ", inplace=True)
+                
+                st.markdown("<div class='table-container'>", unsafe_allow_html=True)
                 st.table(df_finished)
-            else:
-                st.info("אין עדיין מסיימים להציג.")
+                st.markdown("</div>", unsafe_allow_html=True)
                 
             if not df_running.empty:
-                st.markdown("<br><h4 style='color: #b45309;'>🏃‍♂️ רצים פעילים כעת</h4>", unsafe_allow_html=True)
+                st.markdown("<br><h4 style='color: #F59E0B; margin-bottom:5px;'>🏃‍♂️ רצים פעילים כעת</h4>", unsafe_allow_html=True)
                 df_running.set_index("שם הרץ", inplace=True)
+                
+                st.markdown("<div class='table-container'>", unsafe_allow_html=True)
                 st.table(df_running)
+                st.markdown("</div>", unsafe_allow_html=True)
             
         else:
-            st.info("טרם נרשמו זינוקים לאימון זה. המסלול ריק! 🌬️")
+            st.markdown("<div style='text-align:center; color:#94A3B8; padding:20px;'>טרם נרשמו זינוקים לאימון זה. המסלול פנוי! 💨</div>", unsafe_allow_html=True)
             
-        st.markdown("<br><hr><br>", unsafe_allow_html=True)
+        st.markdown("<br><br>", unsafe_allow_html=True)
         if st.button("🗑️ איפוס מערכת מלא (מחיקת זמנים זמניים)"):
             st.session_state.runners_db = {}
             st.rerun()
