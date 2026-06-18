@@ -16,9 +16,23 @@ st.markdown("""
     @import url('https://fonts.googleapis.com/css2?family=Assistant:wght=300;400;700&display=swap');
     * { font-family: 'Assistant', sans-serif; direction: rtl; }
     .stTabs [data-baseweb="tab-list"] { gap: 10px; }
-    .stTabs [data-baseweb="tab"] { background-color: #f0f2f6; border-radius: 8px; padding: 10px 20px; font-weight: bold; }
-    .stTabs [aria-selected="true"] { background-color: #0066cc !important; color: white !important; }
-    div.stButton > button { border-radius: 12px; font-weight: bold; font-size: 16px; padding: 12px; transition: all 0.3s; }
+    .stTabs [data-baseweb="tab"] {
+        background-color: #f0f2f6;
+        border-radius: 8px;
+        padding: 10px 20px;
+        font-weight: bold;
+    }
+    .stTabs [aria-selected="true"] { 
+        background-color: #0066cc !important;
+        color: white !important;
+    }
+    div.stButton > button {
+        border-radius: 12px;
+        font-weight: bold;
+        font-size: 16px;
+        padding: 12px;
+        transition: all 0.3s;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -30,7 +44,7 @@ if 'target_lon' not in st.session_state:
 if 'max_distance' not in st.session_state:
     st.session_state.max_distance = 150
 
-# פונקציה לחישוב מרחק במטרים בין 2 נקודות GPS
+# פונקציה לחישוב מרחק 
 def calculate_distance(lat1, lon1, lat2, lon2):
     R = 6371000
     phi1 = math.radians(lat1)
@@ -41,20 +55,14 @@ def calculate_distance(lat1, lon1, lat2, lon2):
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     return R * c
 
-# --- פונקציית התחברות ל-Google Sheets (מותאם לענן) ---
+# --- פונקציית התחברות ל-Google Sheets מתוך הסודות של Streamlit ---
 @st.cache_resource
 def init_gsheets():
     try:
         scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-        
-        # בדיקה אם אנחנו רצים בענן ויש סודות זמינים
-        if "google_json" in st.secrets:
-            creds_dict = json.loads(st.secrets["google_json"])
-            creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
-        else:
-            # גיבוי לסביבה המקומית על המחשב
-            creds = Credentials.from_service_account_file("credentials.json", scopes=scopes)
-            
+        # קריאת הסודות שהזנו בהגדרות והפיכתם למילון
+        creds_dict = json.loads(st.secrets["google_json"])
+        creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
         client = gspread.authorize(creds)
         return client.open("RunningClub_DB").sheet1
     except Exception as e:
@@ -62,13 +70,16 @@ def init_gsheets():
 
 sheet = init_gsheets()
 
+# --- אתחול בסיס הנתונים הזמני בזיכרון המערכת ---
 if 'runners_db' not in st.session_state:
     st.session_state.runners_db = {}
 
+# רשימת הרצים הרשמית של המועדון
 RUNNERS_LIST = ["אבי כהן", "דנה לוי", "יוסי ישראלי", "מיכל גולן", "רוני לוי", "עידו ברק"]
 
 url_params = st.query_params
 suggested_runner = url_params.get("runner", "בחר שם...")
+
 if suggested_runner in [r.replace(" ", "_") for r in RUNNERS_LIST]:
     suggested_runner = suggested_runner.replace("_", " ")
 
@@ -91,32 +102,19 @@ with tab_runners:
 
     if current_runner != "בחר שם...":
         if current_runner not in st.session_state.runners_db:
-            st.session_state.runners_db[current_runner] = {"start": None, "laps": [], "end": None, "duration": None}
+            st.session_state.runners_db[current_runner] = {
+                "start": None, "laps": [], "end": None, "duration": None
+            }
         
         runner_data = st.session_state.runners_db[current_runner]
         
-        location_allowed = False
-        with st.expander("📍 בדיקת נוכחות במסלול (חובה)", expanded=True):
-            st.write("המערכת דורשת אימות מיקום כדי לוודא הגעה למתחם.")
-            
-            runner_safe_key = current_runner.replace(" ", "_")
-            loc = streamlit_js_eval(data_of='geolocation', key=f"geo_static_{runner_safe_key}")
-            
-            if loc and isinstance(loc, dict) and 'coords' in loc:
-                user_lat = loc['coords']['latitude']
-                user_lon = loc['coords']['longitude']
-                distance = calculate_distance(user_lat, user_lon, st.session_state.target_lat, st.session_state.target_lon)
-                
-                if distance <= st.session_state.max_distance:
-                    st.success(f"✅ המיקום אומת! אתה נמצא במתחם (כ-{int(distance)} מטרים מהזינוק).")
-                    location_allowed = True
-                else:
-                    st.error(f"❌ שגיאה: אתה רחוק מדי מהמסלול (כ-{int(distance/1000)} ק״מ מהזינוק). לא ניתן ללחוץ משם.")
-            else:
-                st.info("🔄 ממתין לקבלת נתוני GPS מהמכשיר... אנא ודא שאישרת גישת מיקום בדפדפן.")
+        # --- מעקף GPS פתוח ---
+        location_allowed = True
+        with st.expander("📍 בדיקת נוכחות במסלול (מעקף GPS פעיל)", expanded=True):
+            st.success("🚀 מצב טסט הופעל: ה-GPS כובה זמנית והכפתור פתוח לזינוק מכל מקום בעולם!")
         
         if runner_data["start"] is None:
-            st.info("🏃‍♂️ מוכן לזינוק? כפתור ההתחלה ייפתח ברגע שהמיקום יאומת.")
+            st.info("🏃‍♂️ מוכן לזינוק?")
             if st.button("🟢 התחל ריצה", use_container_width=True, disabled=not location_allowed):
                 st.session_state.runners_db[current_runner]["start"] = datetime.now()
                 st.rerun()
@@ -142,6 +140,7 @@ with tab_runners:
                 final_duration_str = str(duration).split('.')[0]
                 st.session_state.runners_db[current_runner]["duration"] = duration
                 
+                # שמירה ל-Google Sheets
                 if sheet:
                     try:
                         row_data = [
@@ -176,7 +175,6 @@ with tab_admin:
     if admin_pass == "1234":
         st.markdown("---")
         st.markdown("### ⚙️ הגדרת מיקום המסלול (GPS)")
-        
         col_lat, col_lon, col_rad = st.columns(3)
         with col_lat:
             new_lat = st.number_input("קו רוחב (Latitude):", value=st.session_state.target_lat, format="%.6f")
