@@ -15,6 +15,7 @@ st.markdown("""
     .stTabs [data-baseweb="tab"] { background-color: #f0f2f6; border-radius: 8px; padding: 10px 20px; font-weight: bold; }
     .stTabs [aria-selected="true"] { background-color: #0066cc !important; color: white !important; }
     div.stButton > button { border-radius: 12px; font-weight: bold; font-size: 16px; padding: 12px; transition: all 0.3s; }
+    [data-testid="stMetricValue"] { font-size: 2rem; color: #0066cc; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -22,8 +23,6 @@ st.markdown("""
 def init_gsheets():
     try:
         scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-        
-        # טעינת הסודות
         if "google_json" in st.secrets:
             raw_creds = st.secrets["google_json"]
             if isinstance(raw_creds, str):
@@ -33,7 +32,6 @@ def init_gsheets():
         else:
             creds_dict = dict(st.secrets)
             
-        # ✨ פתרון הקסם: המרת הלוכסנים שמכשילים את גוגל לשבירות שורה אמיתיות! ✨
         if "private_key" in creds_dict:
             creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
             
@@ -51,7 +49,6 @@ if 'runners_db' not in st.session_state:
 RUNNERS_LIST = ["אבי כהן", "דנה לוי", "יוסי ישראלי", "מיכל גולן", "רוני לוי", "עידו ברק"]
 
 st.markdown("<h1 style='text-align: center; color: #111;'>🏃‍♂️ RunningClub Pro</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: #666;'>מערכת חכמה לניהול ורישום זמני ריצה</p>", unsafe_allow_html=True)
 
 if not sheet:
     st.error("⚠️ חיבור לענן נכשל. הנתונים לא יישמרו באקסל. ודא שהסודות שמורים ב-Streamlit.")
@@ -67,10 +64,7 @@ with tab_runners:
             st.session_state.runners_db[current_runner] = {"start": None, "laps": [], "end": None, "duration": None}
         
         runner_data = st.session_state.runners_db[current_runner]
-        
         location_allowed = True
-        with st.expander("📍 אימות מיקום עוקף", expanded=True):
-            st.success("🚀 אימות ה-GPS בוטל. הכפתור פתוח לזינוק מכל מקום!")
 
         if runner_data["start"] is None:
             if st.button("🟢 התחל ריצה", use_container_width=True, disabled=not location_allowed):
@@ -120,7 +114,7 @@ with tab_runners:
             st.markdown(f"<h4 style='text-align:center;'>זמן כולל: {final_anim}</h4>", unsafe_allow_html=True)
 
 with tab_admin:
-    st.subheader("🔒 ניהול ובקרה")
+    st.subheader("🔒 דשבורד מנהל")
     admin_pass = st.text_input("סיסמת מנהל:", type="password")
     
     if admin_pass == "1234":
@@ -128,18 +122,53 @@ with tab_admin:
         records = []
         for name, data in st.session_state.runners_db.items():
             if data["start"] is not None:
+                # חישוב שניות נטו לצורך מיון מהיר למוביל
+                total_sec = data["duration"].total_seconds() if data["duration"] else 999999
                 records.append({
                     "שם הרץ": name,
                     "שעת התחלה": data["start"].strftime("%H:%M:%S"),
-                    "שעת סיום": data["end"].strftime("%H:%M:%S") if data["end"] else "🏃‍♂️ רץ...",
-                    "זמן נטו": str(data["duration"]).split('.')[0] if data["duration"] else "",
-                    "מספר הקפות": len(data["laps"])
+                    "שעת סיום": data["end"].strftime("%H:%M:%S") if data["end"] else "🏃‍♂️ על המסלול",
+                    "זמן נטו": str(data["duration"]).split('.')[0] if data["duration"] else "-",
+                    "הקפות": len(data["laps"]),
+                    "_sort_val": total_sec # עמודה נסתרת למיון
                 })
         
         if records:
             df = pd.DataFrame(records)
-            st.dataframe(df, use_container_width=True, hide_index=True)
+            df_finished = df[df["זמן נטו"] != "-"].sort_values(by="_sort_val").drop(columns=["_sort_val"])
+            df_running = df[df["זמן נטו"] == "-"].drop(columns=["_sort_val"])
             
-        if st.button("🗑️ איפוס מערכת מלא"):
+            # קוביות נתונים (KPIs)
+            c1, c2, c3 = st.columns(3)
+            c1.metric("סה״כ זינקו", len(df))
+            c2.metric("סיימו ריצה", len(df_finished))
+            c3.metric("עדיין במסלול", len(df_running))
+            
+            st.markdown("### 🏆 טבלת תוצאות (מוינו לפי המהיר ביותר)")
+            if not df_finished.empty:
+                st.dataframe(
+                    df_finished, 
+                    use_container_width=True, 
+                    hide_index=True,
+                    column_config={
+                        "שם הרץ": st.column_config.TextColumn("שם הרץ", width="medium"),
+                        "שעת התחלה": st.column_config.TextColumn("שעת התחלה"),
+                        "שעת סיום": st.column_config.TextColumn("שעת סיום"),
+                        "זמן נטו": st.column_config.TextColumn("⏱️ זמן נטו", width="small"),
+                        "הקפות": st.column_config.NumberColumn("🔄 הקפות", width="small"),
+                    }
+                )
+            else:
+                st.info("אין עדיין מסיימים להציג.")
+                
+            if not df_running.empty:
+                st.markdown("### 🏃‍♂️ רצים פעילים כעת")
+                st.dataframe(df_running, use_container_width=True, hide_index=True)
+            
+        else:
+            st.info("טרם נרשמו זינוקים לאימון זה.")
+            
+        st.markdown("---")
+        if st.button("🗑️ איפוס מערכת מלא (מחיקת זמנים זמניים)"):
             st.session_state.runners_db = {}
             st.rerun()
