@@ -96,11 +96,10 @@ tab_runners, tab_admin = st.tabs(["📱 אזור הרצים", "📊 דשבורד
 with tab_runners:
     st.subheader("⏱️ רישום אישי")
     
-    # התיבה החדשה: הזנת שם חופשית במקום רשימה סגורה
     current_runner_input = st.text_input("📝 הקלד/י את שמך המלא ולחץ/י Enter:")
-    current_runner = current_runner_input.strip() # מנקה רווחים מיותרים
+    current_runner = current_runner_input.strip()
 
-    if current_runner: # אם המשתמש הקליד משהו
+    if current_runner:
         if current_runner not in st.session_state.runners_db:
             st.session_state.runners_db[current_runner] = {"start": None, "laps": [], "end": None, "duration": None}
         
@@ -136,7 +135,6 @@ with tab_runners:
                 final_time_str = str(duration).split('.')[0]
                 laps_count = len(runner_data["laps"])
                 
-                # 1. שמירה לאקסל
                 if sheet:
                     try:
                         row_data = [
@@ -151,7 +149,6 @@ with tab_runners:
                     except Exception as e:
                         st.error(f"שגיאה בשליחה: {e}")
                 
-                # 2. שליחת התראת אימייל למנהל
                 send_email_notification(current_runner, final_time_str, laps_count)
                 
                 st.balloons()
@@ -193,18 +190,11 @@ with tab_admin:
             
             st.markdown("### 🏆 טבלת תוצאות (מוינו לפי המהיר ביותר)")
             if not df_finished.empty:
-                st.dataframe(
-                    df_finished, 
-                    use_container_width=True, 
-                    hide_index=True,
-                    column_config={
-                        "שם הרץ": st.column_config.TextColumn("שם הרץ", width="medium"),
-                        "שעת התחלה": st.column_config.TextColumn("שעת התחלה"),
-                        "שעת סיום": st.column_config.TextColumn("שעת סיום"),
-                        "זמן נטו": st.column_config.TextColumn("⏱️ זמן נטו", width="small"),
-                        "הקפות": st.column_config.NumberColumn("🔄 הקפות", width="small"),
-                    }
-                )
+                # הוספת האייקונים לשם העמודה במקום להשתמש ב-column_config ששובר את התצוגה
+                df_finished = df_finished.rename(columns={"זמן נטו": "⏱️ זמן נטו", "הקפות": "🔄 הקפות"})
+                
+                # הצגת הטבלה ברוחב מלא וחופשי - ללא הגבלת עמודות שתמעך את הטקסט!
+                st.dataframe(df_finished, use_container_width=True, hide_index=True)
             else:
                 st.info("אין עדיין מסיימים להציג.")
                 
