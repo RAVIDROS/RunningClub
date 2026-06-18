@@ -10,6 +10,7 @@ import ssl
 
 st.set_page_config(page_title="RunningClub Pro", page_icon="🏃‍♂️", layout="centered")
 
+# הוספתי CSS מיוחד כדי שהטבלאות יתפרסו על כל המסך מימין לשמאל בצורה מושלמת
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Assistant:wght=300;400;700&display=swap');
@@ -19,10 +20,11 @@ st.markdown("""
     .stTabs [aria-selected="true"] { background-color: #0066cc !important; color: white !important; }
     div.stButton > button { border-radius: 12px; font-weight: bold; font-size: 16px; padding: 12px; transition: all 0.3s; }
     [data-testid="stMetricValue"] { font-size: 2rem; color: #0066cc; }
+    table { width: 100% !important; }
+    th, td { text-align: right !important; font-size: 16px; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- פונקציה לשליחת אימייל ---
 def send_email_notification(runner_name, duration, laps):
     try:
         sender_email = st.secrets.get("EMAIL_SENDER")
@@ -190,17 +192,17 @@ with tab_admin:
             
             st.markdown("### 🏆 טבלת תוצאות (מוינו לפי המהיר ביותר)")
             if not df_finished.empty:
-                # הוספת האייקונים לשם העמודה במקום להשתמש ב-column_config ששובר את התצוגה
                 df_finished = df_finished.rename(columns={"זמן נטו": "⏱️ זמן נטו", "הקפות": "🔄 הקפות"})
-                
-                # הצגת הטבלה ברוחב מלא וחופשי - ללא הגבלת עמודות שתמעך את הטקסט!
-                st.dataframe(df_finished, use_container_width=True, hide_index=True)
+                # הקסם: הגדרת שם הרץ כעמודה הראשית ושימוש בטבלה סטטית שלא נחתכת
+                df_finished.set_index("שם הרץ", inplace=True)
+                st.table(df_finished)
             else:
                 st.info("אין עדיין מסיימים להציג.")
                 
             if not df_running.empty:
                 st.markdown("### 🏃‍♂️ רצים פעילים כעת")
-                st.dataframe(df_running, use_container_width=True, hide_index=True)
+                df_running.set_index("שם הרץ", inplace=True)
+                st.table(df_running)
             
         else:
             st.info("טרם נרשמו זינוקים לאימון זה.")
