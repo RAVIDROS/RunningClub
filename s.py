@@ -3,101 +3,50 @@ import pandas as pd
 from datetime import datetime
 import gspread
 from google.oauth2.service_account import Credentials
-import math
 import json
-from streamlit_js_eval import streamlit_js_eval
 
-# הגדרת מבנה עמוד ועיצוב רטרו-ספורטיבי נקי
+# הגדרת עמוד
 st.set_page_config(page_title="RunningClub Pro", page_icon="🏃‍♂️", layout="centered")
 
-# --- הזרקת עיצוב CSS מותאם אישית לחוויה מעוצבת ומקצועית ---
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Assistant:wght=300;400;700&display=swap');
     * { font-family: 'Assistant', sans-serif; direction: rtl; }
     .stTabs [data-baseweb="tab-list"] { gap: 10px; }
-    .stTabs [data-baseweb="tab"] {
-        background-color: #f0f2f6;
-        border-radius: 8px;
-        padding: 10px 20px;
-        font-weight: bold;
-    }
-    .stTabs [aria-selected="true"] { 
-        background-color: #0066cc !important;
-        color: white !important;
-    }
-    div.stButton > button {
-        border-radius: 12px;
-        font-weight: bold;
-        font-size: 16px;
-        padding: 12px;
-        transition: all 0.3s;
-    }
+    .stTabs [data-baseweb="tab"] { background-color: #f0f2f6; border-radius: 8px; padding: 10px 20px; font-weight: bold; }
+    .stTabs [aria-selected="true"] { background-color: #0066cc !important; color: white !important; }
+    div.stButton > button { border-radius: 12px; font-weight: bold; font-size: 16px; padding: 12px; transition: all 0.3s; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- אתחול הגדרות ה-GPS בזיכרון המערכת (ערכי ברירת מחדל) ---
-if 'target_lat' not in st.session_state:
-    st.session_state.target_lat = 32.085300
-if 'target_lon' not in st.session_state:
-    st.session_state.target_lon = 34.781800
-if 'max_distance' not in st.session_state:
-    st.session_state.max_distance = 150
-
-# פונקציה לחישוב מרחק 
-def calculate_distance(lat1, lon1, lat2, lon2):
-    R = 6371000
-    phi1 = math.radians(lat1)
-    phi2 = math.radians(lat2)
-    delta_phi = math.radians(lat2 - lat1)
-    delta_lambda = math.radians(lon2 - lon1)
-    a = math.sin(delta_phi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2) ** 2
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-    return R * c
-
-# --- פונקציית התחברות ל-Google Sheets (עם מנגנון גילוי שגיאות מורחב) ---
+# פונקציית התחברות ל-Google Sheets (חסינת תקלות)
 @st.cache_resource
 def init_gsheets():
     try:
-        if "google_json" not in st.secrets:
-            st.error("🕵️‍♂️ שגיאה: לא נמצא המפתח 'google_json' בהגדרות הסודות (Secrets) של Streamlit.")
-            return None
-            
         scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
         
-        try:
-            creds_dict = json.loads(st.secrets["google_json"])
-        except json.JSONDecodeError as e:
-            st.error(f"🕵️‍♂️ שגיאה: הפורמט של הסוד ב-Streamlit אינו תקין (בעיית JSON): {e}")
-            return None
+        # זיהוי אוטומטי של איך שהכנסת את הסודות
+        if "google_json" in st.secrets:
+            creds_data = st.secrets["google_json"]
+        else:
+            creds_data = st.secrets
             
-        creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+        if isinstance(creds_data, str):
+            creds_data = json.loads(creds_data)
+            
+        creds = Credentials.from_service_account_info(creds_data, scopes=scopes)
         client = gspread.authorize(creds)
-        
-        try:
-            return client.open("RunningClub_DB").sheet1
-        except gspread.exceptions.SpreadsheetNotFound:
-            st.error("🕵️‍♂️ שגיאה: גוגל התחבר בהצלחה! אבל לא נמצא קובץ אקסל בשם המדויק 'RunningClub_DB' (שים לב לאותיות גדולות/קטנות, או שהקובץ לא שותף עם אימייל הבוט כעורך).")
-            return None
-            
+        return client.open("RunningClub_DB").sheet1
     except Exception as e:
-        st.error(f"🕵️‍♂️ שגיאה כללית בהתחברות לגוגל: {e}")
         return None
 
 sheet = init_gsheets()
 
-# --- אתחול בסיס הנתונים הזמני בזיכרון המערכת ---
+# אתחול נתונים זמני
 if 'runners_db' not in st.session_state:
     st.session_state.runners_db = {}
 
-# רשימת הרצים הרשמית של המועדון
 RUNNERS_LIST = ["אבי כהן", "דנה לוי", "יוסי ישראלי", "מיכל גולן", "רוני לוי", "עידו ברק"]
-
-url_params = st.query_params
-suggested_runner = url_params.get("runner", "בחר שם...")
-
-if suggested_runner in [r.replace(" ", "_") for r in RUNNERS_LIST]:
-    suggested_runner = suggested_runner.replace("_", " ")
 
 st.markdown("<h1 style='text-align: center; color: #111;'>🏃‍♂️ RunningClub Pro</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center; color: #666;'>מערכת חכמה לניהול ורישום זמני ריצה</p>", unsafe_allow_html=True)
@@ -107,28 +56,21 @@ if not sheet:
 
 tab_runners, tab_admin = st.tabs(["📱 אזור הרצים", "📊 דשבורד מנהל"])
 
-# ==========================================
-# 📱 לשונית 1: ממשק הרצים
-# ==========================================
 with tab_runners:
     st.subheader("⏱️ רישום אישי")
-    
-    default_index = RUNNERS_LIST.index(suggested_runner) if suggested_runner in RUNNERS_LIST else 0
-    current_runner = st.selectbox("אנא בחר את שמך מהרשימה:", ["בחר שם..."] + RUNNERS_LIST, index=default_index + (1 if default_index or suggested_runner in RUNNERS_LIST else 0))
+    current_runner = st.selectbox("אנא בחר את שמך מהרשימה:", ["בחר שם..."] + RUNNERS_LIST)
 
     if current_runner != "בחר שם...":
         if current_runner not in st.session_state.runners_db:
-            st.session_state.runners_db[current_runner] = {
-                "start": None, "laps": [], "end": None, "duration": None
-            }
+            st.session_state.runners_db[current_runner] = {"start": None, "laps": [], "end": None, "duration": None}
         
         runner_data = st.session_state.runners_db[current_runner]
         
-        # --- מעקף GPS פתוח ---
+        # --- המעקף המלא: מיקום תמיד מאושר, אין המתנה ל-GPS ---
         location_allowed = True
-        with st.expander("📍 בדיקת נוכחות במסלול (מעקף GPS פעיל)", expanded=True):
-            st.success("🚀 מצב טסט הופעל: ה-GPS כובה זמנית והכפתור פתוח לזינוק מכל מקום בעולם!")
-        
+        with st.expander("📍 בדיקת נוכחות במסלול (בוטל לטובת הבדיקה)", expanded=True):
+            st.success("🚀 אימות ה-GPS בוטל זמנית. הכפתור פתוח לזינוק מכל מקום!")
+
         if runner_data["start"] is None:
             st.info("🏃‍♂️ מוכן לזינוק?")
             if st.button("🟢 התחל ריצה", use_container_width=True, disabled=not location_allowed):
@@ -167,9 +109,9 @@ with tab_runners:
                             str(runner_data["laps"])
                         ]
                         sheet.append_row(row_data)
-                        st.toast("✅ הנתונים גובו בהצלחה לענן!", icon="☁️")
+                        st.toast("✅ הנתונים נשלחו בהצלחה לגיליון האקסל!", icon="☁️")
                     except Exception as e:
-                        st.error(f"שגיאת תקשורת מול גוגל: {e}")
+                        st.error(f"שגיאה בשליחה לגוגל: {e}")
                 
                 st.balloons()
                 st.rerun()
@@ -178,36 +120,13 @@ with tab_runners:
             final_anim = str(runner_data['duration']).split('.')[0]
             st.markdown(f"<h3 style='color: #2ed573; text-align:center;'>כל הכבוד! סיימת בהצלחה! 🎉</h3>", unsafe_allow_html=True)
             st.markdown(f"<h4 style='text-align:center;'>זמן כולל: {final_anim}</h4>", unsafe_allow_html=True)
-            if runner_data["laps"]:
-                st.write("ריכוז זמני ההקפות שלך:", runner_data["laps"])
 
-# ==========================================
-# 📊 לשונית 2: דשבורד מנהל
-# ==========================================
 with tab_admin:
     st.subheader("🔒 ניהול ובקרה")
     admin_pass = st.text_input("סיסמת מנהל:", type="password")
     
     if admin_pass == "1234":
         st.markdown("---")
-        st.markdown("### ⚙️ הגדרת מיקום המסלול (GPS)")
-        col_lat, col_lon, col_rad = st.columns(3)
-        with col_lat:
-            new_lat = st.number_input("קו רוחב (Latitude):", value=st.session_state.target_lat, format="%.6f")
-        with col_lon:
-            new_lon = st.number_input("קו אורך (Longitude):", value=st.session_state.target_lon, format="%.6f")
-        with col_rad:
-            new_rad = st.number_input("רדיוס מותר (במטרים):", value=st.session_state.max_distance, step=10)
-            
-        if st.button("💾 שמור הגדרות מיקום חדשות"):
-            st.session_state.target_lat = new_lat
-            st.session_state.target_lon = new_lon
-            st.session_state.max_distance = new_rad
-            st.success("✅ נקודות הציון עודכנו בהצלחה במערכת!")
-            st.rerun()
-            
-        st.markdown("---")
-        
         records = []
         for name, data in st.session_state.runners_db.items():
             if data["start"] is not None:
@@ -216,32 +135,13 @@ with tab_admin:
                     "שעת התחלה": data["start"].strftime("%H:%M:%S"),
                     "שעת סיום": data["end"].strftime("%H:%M:%S") if data["end"] else "🏃‍♂️ רץ...",
                     "זמן נטו": str(data["duration"]).split('.')[0] if data["duration"] else "",
-                    "מספר הקפות": len(data["laps"]),
-                    "שניות נטו": data["duration"].total_seconds() if data["duration"] else None
+                    "מספר הקפות": len(data["laps"])
                 })
         
         if records:
             df = pd.DataFrame(records)
-            total_started = len(df)
-            total_finished = len(df[df["שעת סיום"] != "🏃‍♂️ רץ..."])
+            st.dataframe(df, use_container_width=True, hide_index=True)
             
-            c1, c2, c3 = st.columns(3)
-            c1.metric("רצו היום", total_started)
-            c2.metric("סיימו בהצלחה", total_finished)
-            c3.metric("עדיין במסלול", total_started - total_finished)
-            
-            st.markdown("### 🏆 טבלת מובילים (Leaderboard)")
-            df_leaderboard = df.sort_values(by="שניות נטו", ascending=True).drop(columns=["שניות נטו"])
-            st.dataframe(df_leaderboard, use_container_width=True, hide_index=True)
-            
-            df_finished = df[df["שניות נטו"].notna()]
-            if not df_finished.empty:
-                st.markdown("### 📈 התפלגות זמני סיום")
-                chart_data = df_finished.set_index("שם הרץ")["שניות נטו"]
-                st.bar_chart(chart_data)
-        else:
-            st.info("אין עדיין נתונים זמינים לאימון הנוכחי.")
-            
-        if st.button("🗑️ איפוס מערכת מלא (מקומי)"):
+        if st.button("🗑️ איפוס מערכת מלא"):
             st.session_state.runners_db = {}
             st.rerun()
