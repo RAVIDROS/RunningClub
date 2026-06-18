@@ -55,17 +55,33 @@ def calculate_distance(lat1, lon1, lat2, lon2):
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     return R * c
 
-# --- פונקציית התחברות ל-Google Sheets מתוך הסודות של Streamlit ---
+# --- פונקציית התחברות ל-Google Sheets (עם מנגנון גילוי שגיאות מורחב) ---
 @st.cache_resource
 def init_gsheets():
     try:
+        if "google_json" not in st.secrets:
+            st.error("🕵️‍♂️ שגיאה: לא נמצא המפתח 'google_json' בהגדרות הסודות (Secrets) של Streamlit.")
+            return None
+            
         scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-        # קריאת הסודות שהזנו בהגדרות והפיכתם למילון
-        creds_dict = json.loads(st.secrets["google_json"])
+        
+        try:
+            creds_dict = json.loads(st.secrets["google_json"])
+        except json.JSONDecodeError as e:
+            st.error(f"🕵️‍♂️ שגיאה: הפורמט של הסוד ב-Streamlit אינו תקין (בעיית JSON): {e}")
+            return None
+            
         creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
         client = gspread.authorize(creds)
-        return client.open("RunningClub_DB").sheet1
+        
+        try:
+            return client.open("RunningClub_DB").sheet1
+        except gspread.exceptions.SpreadsheetNotFound:
+            st.error("🕵️‍♂️ שגיאה: גוגל התחבר בהצלחה! אבל לא נמצא קובץ אקסל בשם המדויק 'RunningClub_DB' (שים לב לאותיות גדולות/קטנות, או שהקובץ לא שותף עם אימייל הבוט כעורך).")
+            return None
+            
     except Exception as e:
+        st.error(f"🕵️‍♂️ שגיאה כללית בהתחברות לגוגל: {e}")
         return None
 
 sheet = init_gsheets()
