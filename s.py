@@ -8,34 +8,52 @@ import smtplib
 from email.message import EmailMessage
 import ssl
 
-# הגדרת עמוד למובייל - פריסה רחבה
+# הגדרת עמוד למובייל ומחשב - פריסה מותאמת
 st.set_page_config(page_title="RunningClub Pro", page_icon="🏃‍♂️", layout="centered")
 
-# --- ארכיטקטורת עיצוב פרימיום למובייל (CSS נקי ויציב) ---
+# --- ארכיטקטורת עיצוב פרימיום ספורט (CSS) ---
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Assistant:wght=300;400;600;700;800&display=swap');
     
-    /* הגדרות כלליות ומניעת גלילה אופקית */
+    /* הגדרות כלליות */
     * { font-family: 'Assistant', sans-serif; direction: rtl; }
     
-    /* רקע האפליקציה (Dark Mode אלגנטי) */
-    .stApp {
-        background-color: #0F172A !important;
-    }
+    /* רקע אקסטרים דארק */
+    .stApp { background-color: #0F172A !important; }
     
-    /* העלמת סרגלים מיותרים של סטרימליט */
     header, footer, #MainMenu { visibility: hidden !important; }
     
-    /* כותרות ראשיות */
-    h1, h2, h3 {
-        color: #F8FAFC !important;
-        text-align: center !important;
+    h1, h2, h3, h4 { color: #F8FAFC !important; text-align: center !important; font-weight: 800; }
+    
+    /* עיצוב כרטיסיות הרצים המעוצבות (כמו Strava) */
+    .runner-card {
+        background: linear-gradient(135deg, #1E293B, #0F172A);
+        border: 1px solid #334155;
+        border-radius: 24px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.3);
     }
     
-    /* עיצוב תיבת הטקסט (שם הרץ) שיהיה קריא באייפון! */
+    .runner-header {
+        font-size: 20px;
+        font-weight: 800;
+        color: #38BDF8;
+        border-bottom: 1px solid #334155;
+        padding-bottom: 10px;
+        margin-bottom: 15px;
+    }
+    
+    .stat-line {
+        font-size: 16px;
+        color: #E2E8F0;
+        margin-bottom: 8px;
+    }
+
+    /* תיבת קלט שם */
     div[data-testid="stTextInput"] label p {
-        color: #38BDF8 !important; /* תכלת זוהר */
+        color: #38BDF8 !important;
         font-size: 1.1rem !important;
         font-weight: 600 !important;
     }
@@ -43,84 +61,51 @@ st.markdown("""
         background-color: #1E293B !important;
         color: #FFFFFF !important;
         border: 2px solid #334155 !important;
-        border-radius: 12px !important;
+        border-radius: 14px !important;
         padding: 15px !important;
         font-size: 1.2rem !important;
-        text-align: right !important;
-    }
-    div[data-testid="stTextInput"] input:focus {
-        border-color: #38BDF8 !important;
-        box-shadow: 0 0 10px rgba(56, 189, 248, 0.3) !important;
     }
 
-    /* עיצוב הלשוניות העליונות */
+    /* לשוניות עליונות */
     div[data-testid="stTabs"] button {
         background-color: #1E293B;
         border: 1px solid #334155;
-        border-radius: 20px;
+        border-radius: 30px;
         color: #94A3B8;
-        padding: 10px 20px;
-        margin: 0 5px;
+        padding: 12px 25px;
         font-weight: bold;
     }
     div[data-testid="stTabs"] button[aria-selected="true"] {
         background: linear-gradient(135deg, #3B82F6, #1D4ED8) !important;
         color: #FFFFFF !important;
         border: none;
+        box-shadow: 0 5px 15px rgba(59, 130, 246, 0.4);
     }
     
-    /* עיצוב כפתורי הענק */
+    /* כפתורי ריצה ענקיים */
     div.stButton > button { 
         border-radius: 16px !important; 
         font-weight: 800 !important; 
         font-size: 1.2rem !important; 
-        padding: 15px !important; 
+        padding: 16px !important; 
         border: none !important;
-        width: 100% !important;
         color: white !important;
-        margin-top: 10px !important;
     }
+    div.stButton > button:contains("התחל ריצה") { background: linear-gradient(135deg, #10B981, #059669) !important; }
+    div.stButton > button:contains("רשום הקפה") { background: linear-gradient(135deg, #F59E0B, #D97706) !important; }
+    div.stButton > button:contains("סיימתי ריצה") { background: linear-gradient(135deg, #EF4444, #DC2626) !important; }
     
-    /* צבעים ספציפיים לכפתורים לפי הטקסט שלהם */
-    div.stButton > button:contains("התחל ריצה") {
-        background: linear-gradient(135deg, #10B981, #059669) !important;
-        box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4) !important;
-    }
-    div.stButton > button:contains("רשום הקפה") {
-        background: linear-gradient(135deg, #F59E0B, #D97706) !important;
-        box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3) !important;
-    }
-    div.stButton > button:contains("סיימתי ריצה") {
-        background: linear-gradient(135deg, #EF4444, #DC2626) !important;
-        box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4) !important;
-    }
-    
-    /* מדדים של המנהל (KPI) */
+    /* קוביות סטטיסטיקה */
     div[data-testid="metric-container"] {
         background-color: #1E293B;
         border: 1px solid #334155;
         border-radius: 16px;
         padding: 15px;
-        text-align: center;
     }
-    div[data-testid="stMetricValue"] {
-        color: #38BDF8 !important;
-        font-size: 2.2rem !important;
-        font-weight: 800 !important;
-    }
+    div[data-testid="stMetricValue"] { color: #38BDF8 !important; font-size: 2.2rem !important; font-weight: 800 !important; }
     
-    /* עיצוב טבלאות נקי */
-    table { width: 100% !important; background-color: #1E293B !important; color: white !important; border-radius: 10px; overflow: hidden; }
-    th { background-color: #0F172A !important; color: #38BDF8 !important; text-align: right !important; padding: 12px !important;}
-    td { padding: 12px !important; border-bottom: 1px solid #334155 !important; }
-    
-    /* התראות והודעות (Success/Error/Info) */
-    div[data-testid="stAlert"] {
-        background-color: #1E293B !important;
-        color: #F8FAFC !important;
-        border: 1px solid #334155 !important;
-        border-radius: 12px !important;
-    }
+    /* עיצוב אלמנט המפה של סטרימליט שיתאים לרקע */
+    .stMap { border-radius: 16px; overflow: hidden; border: 1px solid #334155; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -129,76 +114,45 @@ def send_email_notification(runner_name, duration, laps):
         sender_email = st.secrets.get("EMAIL_SENDER")
         sender_password = st.secrets.get("EMAIL_PASSWORD")
         receiver_email = st.secrets.get("EMAIL_RECEIVER")
-        
-        if not sender_email or not sender_password or not receiver_email:
-            return 
-            
-        msg = EmailMessage()
-        msg['Subject'] = f"🏃‍♂️ עדכון מהמסלול: {runner_name} סיים כעת!"
-        msg['From'] = sender_email
-        msg['To'] = receiver_email
-        
-        content = f"""
-        שלום למנהל,
-        
-        הרץ {runner_name} סיים כעת את האימון בהצלחה.
-        
-        ⏱️ זמן נטו: {duration}
-        🔄 מספר הקפות שנרשמו: {laps}
-        
-        המערכת,
-        RunningClub Pro
-        """
-        msg.set_content(content)
-        
-        context = ssl.create_default_context()
-        with smtplib.SMTP_SSL('smtp.gmail.com', 465, context=context) as smtp:
-            clean_password = sender_password.replace(" ", "")
-            smtp.login(sender_email, clean_password)
-            smtp.send_message(msg)
-    except Exception as e:
+        if sender_email and sender_password and receiver_email:
+            msg = EmailMessage()
+            msg['Subject'] = f"🏃‍♂️ עדכון מהמסלול: {runner_name} סיים כעת!"
+            msg['From'] = sender_email
+            msg['To'] = receiver_email
+            msg.set_content(f"שלום למנהל,\n\nהרץ {runner_name} סיים את האימון.\n\n⏱️ זמן נטו: {duration}\n🔄 הקפות: {laps}\n\nRunningClub Pro")
+            context = ssl.create_default_context()
+            with smtplib.SMTP_SSL('smtp.gmail.com', 465, context=context) as smtp:
+                smtp.login(sender_email, sender_password.replace(" ", ""))
+                smtp.send_message(msg)
+    except:
         pass
 
 @st.cache_resource
 def init_gsheets():
     try:
         scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-        if "google_json" in st.secrets:
-            raw_creds = st.secrets["google_json"]
-            if isinstance(raw_creds, str):
-                creds_dict = json.loads(raw_creds)
-            else:
-                creds_dict = dict(raw_creds)
-        else:
-            creds_dict = dict(st.secrets)
-            
-        if "private_key" in creds_dict:
-            creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
-            
-        creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
-        client = gspread.authorize(creds)
+        creds_data = st.secrets["google_json"] if "google_json" in st.secrets else st.secrets
+        if isinstance(creds_data, str): creds_data = json.loads(creds_data)
+        if "private_key" in creds_data: creds_data["private_key"] = creds_data["private_key"].replace("\\n", "\n")
+        client = gspread.authorize(Credentials.from_service_account_info(creds_data, scopes=scopes))
         return client.open("RunningClub_DB").sheet1
-    except Exception as e:
+    except:
         return None
 
 sheet = init_gsheets()
+if 'runners_db' not in st.session_state: st.session_state.runners_db = {}
 
-if 'runners_db' not in st.session_state:
-    st.session_state.runners_db = {}
-
-# כותרת ראשית של האפליקציה
-st.title("🏃‍♂️ RunningClub Pro")
-st.markdown("<p style='text-align: center; color: #94A3B8; font-size: 1.1rem; margin-top: -15px; margin-bottom: 30px;'>מערכת ניהול ריצה חכמה</p>", unsafe_allow_html=True)
-
-if not sheet:
-    st.error("⚠️ חיבור לענן נכשל. הנתונים לא יישמרו באקסל. ודא שהסודות שמורים ב-Streamlit.")
+st.markdown("<h1 style='font-size: 2.5rem; background: linear-gradient(135deg, #38BDF8, #3B82F6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;'>RunningClub Pro</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #94A3B8; margin-top:-15px; margin-bottom:25px;'>מערכת ניהול ומעקב אימונים דינמית</p>", unsafe_allow_html=True)
 
 tab_runners, tab_admin = st.tabs(["📱 אזור הרצים", "📊 דשבורד מנהל"])
 
+# ==========================================
+# 📱 לשונית הרצים
+# ==========================================
 with tab_runners:
-    st.subheader("⏱️ רישום וזינוק אישי")
-    
-    current_runner_input = st.text_input("הקלד/י שם מלא ולחץ/י Enter:")
+    st.markdown("<div class='runner-card'>", unsafe_allow_html=True)
+    current_runner_input = st.text_input("הקלד/י שם מלא ולחץ/י Enter לזינוק:")
     current_runner = current_runner_input.strip()
 
     if current_runner:
@@ -206,28 +160,25 @@ with tab_runners:
             st.session_state.runners_db[current_runner] = {"start": None, "laps": [], "end": None, "duration": None}
         
         runner_data = st.session_state.runners_db[current_runner]
-        location_allowed = True
 
         if runner_data["start"] is None:
-            if st.button("🟢 התחל ריצה (זינוק!)", use_container_width=True, disabled=not location_allowed):
+            st.markdown("<br>", unsafe_allow_html=True)
+            if st.button("🟢 התחל ריצה (זינוק!)", use_container_width=True):
                 st.session_state.runners_db[current_runner]["start"] = datetime.now()
                 st.rerun()
                 
         elif runner_data["start"] is not None and runner_data["end"] is None:
-            st.info(f"⏱️ מעולה! זינקת בשעה: {runner_data['start'].strftime('%H:%M:%S')}")
+            st.markdown(f"<div style='background-color: rgba(56,189,248,0.1); border: 1px solid #38BDF8; padding:15px; border-radius:14px; color:#38BDF8; text-align:center; font-weight:bold; margin-bottom:15px;'>⏱️ השעון רץ! זינקת בשעה: {runner_data['start'].strftime('%H:%M:%S')}</div>", unsafe_allow_html=True)
             
             if st.button("🟡 רשום הקפה / זמן ביניים", use_container_width=True):
-                lap_time = datetime.now()
-                lap_duration = lap_time - runner_data["start"]
+                lap_duration = datetime.now() - runner_data["start"]
                 st.session_state.runners_db[current_runner]["laps"].append(str(lap_duration).split('.')[0])
-                st.toast(f"הקפה נרשמה: {str(lap_duration).split('.')[0]}", icon="⏱️")
+                st.toast(f"הקפה נרשמה!", icon="⏱️")
             
-            if runner_data["laps"]:
-                st.write("זמני ביניים:", runner_data["laps"])
+            if runner_data["laps"]: st.write("זמני ביניים:", runner_data["laps"])
                 
-            st.markdown("<br>", unsafe_allow_html=True)
-            
-            if st.button("🔴 סיימתי ריצה! (עצור שעון)", use_container_width=True, disabled=not location_allowed):
+            st.markdown("<br><hr style='border-color:#334155;'><br>", unsafe_allow_html=True)
+            if st.button("🔴 סיימתי ריצה! (עצור שעון)", use_container_width=True):
                 end_time = datetime.now()
                 st.session_state.runners_db[current_runner]["end"] = end_time
                 duration = end_time - runner_data["start"]
@@ -238,70 +189,83 @@ with tab_runners:
                 
                 if sheet:
                     try:
-                        row_data = [
-                            current_runner, 
-                            runner_data["start"].strftime("%d/%m/%Y %H:%M:%S"),
-                            end_time.strftime("%H:%M:%S"),
-                            final_time_str,
-                            str(runner_data["laps"])
-                        ]
-                        sheet.append_row(row_data)
-                        st.toast("✅ נשמר בהצלחה בענן!", icon="☁️")
-                    except Exception as e:
-                        st.error(f"שגיאה בשליחה: {e}")
+                        sheet.append_row([current_runner, runner_data["start"].strftime("%d/%m/%Y %H:%M:%S"), end_time.strftime("%H:%M:%S"), final_time_str, str(runner_data["laps"])])
+                        st.toast("✅ נשמר באקסל!", icon="☁️")
+                    except: pass
                 
                 send_email_notification(current_runner, final_time_str, laps_count)
                 st.balloons()
                 st.rerun()
-                
         else:
-            final_anim = str(runner_data['duration']).split('.')[0]
-            st.success("🎉 סיימת בהצלחה!")
-            st.markdown(f"<h1 style='color: #10B981; font-size: 3.5rem;'>{final_anim}</h1>", unsafe_allow_html=True)
+            st.markdown(f"<div style='background: linear-gradient(135deg, #064E3B, #065F46); padding: 25px; border-radius: 20px; text-align:center; border: 1px solid #10B981;'><h2 style='color: #34D399; margin:0;'>אימון בוצע בהצלחה! 🎉</h2><h1 style='color: white; font-size: 3.5rem; margin-top: 10px;'>{str(runner_data['duration']).split('.')[0]}</h1></div>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
+# ==========================================
+# 📊 דשבורד מנהל (עם מפות)
+# ==========================================
 with tab_admin:
-    st.subheader("🔒 מרכז שליטה")
-    admin_pass = st.text_input("סיסמת מנהל:", type="password")
+    admin_pass = st.text_input("סיסמת מנהל לגישה לנתונים:", type="password")
     
     if admin_pass == "1234":
-        records = []
+        finished_runners = []
+        running_count = 0
+        
         for name, data in st.session_state.runners_db.items():
             if data["start"] is not None:
-                total_sec = data["duration"].total_seconds() if data["duration"] else 999999
-                records.append({
-                    "שם הרץ": name,
-                    "שעת התחלה": data["start"].strftime("%H:%M:%S"),
-                    "שעת סיום": data["end"].strftime("%H:%M:%S") if data["end"] else "רץ כעת",
-                    "זמן נטו": str(data["duration"]).split('.')[0] if data["duration"] else "-",
-                    "הקפות": len(data["laps"]),
-                    "_sort_val": total_sec 
-                })
-        
-        if records:
-            df = pd.DataFrame(records)
-            df_finished = df[df["זמן נטו"] != "-"].sort_values(by="_sort_val").drop(columns=["_sort_val"])
-            df_running = df[df["זמן נטו"] == "-"].drop(columns=["_sort_val"])
-            
-            c1, c2, c3 = st.columns(3)
-            c1.metric("זינקו", len(df))
-            c2.metric("סיימו", len(df_finished))
-            c3.metric("במסלול", len(df_running))
-            
-            if not df_finished.empty:
-                st.subheader("🏆 תוצאות (המהיר ביותר)")
-                df_finished = df_finished.rename(columns={"זמן נטו": "⏱️ נטו", "הקפות": "🔄 הקפות"})
-                df_finished.set_index("שם הרץ", inplace=True)
-                st.table(df_finished)
-                
-            if not df_running.empty:
-                st.subheader("🏃‍♂️ רצים כעת")
-                df_running.set_index("שם הרץ", inplace=True)
-                st.table(df_running)
-            
-        else:
-            st.info("המסלול פנוי. טרם נרשמו זינוקים.")
-            
+                if data["end"]:
+                    finished_runners.append({
+                        "שם": name, "התחלה": data["start"].strftime("%H:%M:%S"),
+                        "סיום": data["end"].strftime("%H:%M:%S"), "נטו": str(data["duration"]).split('.')[0],
+                        "הקפות": len(data["laps"]), "שניות": data["duration"].total_seconds()
+                    })
+                else:
+                    running_count += 1
+                    
+        # קוביות מדדים חיות עליונות
         st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("🗑️ איפוס מערכת מלא (מחיקת זמנים)"):
+        c1, c2, c3 = st.columns(3)
+        c1.metric("סה״כ זינקו", len(finished_runners) + running_count)
+        c2.metric("סיימו אימון", len(finished_runners))
+        c3.metric("במסלול כעת", running_count)
+        st.markdown("---")
+        
+        if finished_runners:
+            st.markdown("<h3 style='text-align:right; color:#38BDF8; margin-bottom:20px;'>🏆 כרטיסיות תוצאות ומסלולי רצים</h3>", unsafe_allow_html=True)
+            
+            # מיון הרצים מהמהיר ביותר לאיטי ביותר
+            df = pd.DataFrame(finished_runners).sort_values(by="שניות")
+            
+            for index, runner in df.iterrows():
+                # יצירת קופסת Strava יוקרתית לכל רץ בנפרד
+                st.markdown(f"""
+                <div class='runner-card'>
+                    <div class='runner-header'>🏅 מקום {index+1}: {runner['שם']}</div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # חלוקה לשני טורים בפנים: ימין נתונים, שמאל מפה!
+                col_data, col_map = st.columns([1, 1.2])
+                
+                with col_data:
+                    st.markdown(f"<div class='stat-line'>⏱️ **זמן סופי:** <span style='color:#10B981; font-weight:bold; font-size:1.2rem;'>{runner['נטו']}</span></div>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='stat-line'>🔄 **הקפות שנרשמו:** {runner['הקפות']}</div>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='stat-line'>🛫 **שעת זינוק:** {runner['התחלה']}</div>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='stat-line'>🏁 **שעת הגעה:** {runner['סיום']}</div>", unsafe_allow_html=True)
+                    
+                with col_map:
+                    # 📍 הגדרת נקודות הציון של המפה (תוכל להחליף את המספרים פה במסלול האמיתי שלכם)
+                    # המסלול כרגע מוגדר כטבעת היקפית סביב נקודת הבסיס
+                    route_data = pd.DataFrame({
+                        'lat': [32.0853, 32.0865, 32.0865, 32.0853, 32.0853],
+                        'lon': [34.7818, 34.7818, 34.7835, 34.7835, 34.7818]
+                    })
+                    # הצגת המפה הקטנה והאינטראקטיבית ליד הרץ
+                    st.map(route_data, zoom=14, use_container_width=True)
+                    
+                st.markdown("<div style='margin-bottom:30px;'></div>", unsafe_allow_html=True)
+        else:
+            st.info("ממתין לסיום הרץ הראשון כדי להציג מפות ותוצאות.")
+            
+        if st.button("🗑️ איפוס אימון מלא"):
             st.session_state.runners_db = {}
             st.rerun()
