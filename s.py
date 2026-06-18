@@ -8,197 +8,122 @@ import smtplib
 from email.message import EmailMessage
 import ssl
 
-# הגדרת עמוד
+# הגדרת עמוד למובייל - פריסה רחבה
 st.set_page_config(page_title="RunningClub Pro", page_icon="🏃‍♂️", layout="centered")
 
-# --- ארכיטקטורת עיצוב פרימיום למובייל (CSS) ---
+# --- ארכיטקטורת עיצוב פרימיום למובייל (CSS נקי ויציב) ---
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Assistant:wght=300;400;600;700;800&display=swap');
     
-    /* הגדרת רקע האפליקציה וצמצום שוליים למובייל */
-    .stApp {
-        background-color: #0F172A !important;
-        color: #F8FAFC !important;
-    }
-    .block-container {
-        padding-top: 1.5rem !important;
-        padding-bottom: 2rem !important;
-        padding-left: 1rem !important;
-        padding-right: 1rem !important;
-        max-width: 100% !important;
-    }
-    
-    /* החבאת אלמנטים של מערכת השרת למראה אפליקציה נקייה */
-    #MainMenu, header, footer { visibility: hidden !important; }
-    
-    /* גופנים וכיוון עברית */
+    /* הגדרות כלליות ומניעת גלילה אופקית */
     * { font-family: 'Assistant', sans-serif; direction: rtl; }
     
-    /* כותרת ראשית מעוצבת ספורט-אקסטרים */
-    .main-title {
-        text-align: center;
-        background: linear-gradient(135deg, #38BDF8, #3B82F6);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        font-weight: 800;
-        font-size: 2.2rem;
-        margin-bottom: 5px;
-        letter-spacing: -0.5px;
-    }
-    .sub-title {
-        text-align: center;
-        color: #94A3B8;
-        font-size: 16px;
-        margin-bottom: 25px;
-        font-weight: 400;
+    /* רקע האפליקציה (Dark Mode אלגנטי) */
+    .stApp {
+        background-color: #0F172A !important;
     }
     
-    /* עיצוב לשוניות מובייל עגולות חלקות */
-    .stTabs [data-baseweb="tab-list"] { 
-        gap: 12px; 
-        border-bottom: none; 
-        justify-content: center; 
-        margin-bottom: 25px;
+    /* העלמת סרגלים מיותרים של סטרימליט */
+    header, footer, #MainMenu { visibility: hidden !important; }
+    
+    /* כותרות ראשיות */
+    h1, h2, h3 {
+        color: #F8FAFC !important;
+        text-align: center !important;
     }
-    .stTabs [data-baseweb="tab"] { 
-        background-color: #1E293B; 
-        border-radius: 40px; 
-        padding: 12px 28px; 
-        font-weight: 700;
-        color: #94A3B8;
+    
+    /* עיצוב תיבת הטקסט (שם הרץ) שיהיה קריא באייפון! */
+    div[data-testid="stTextInput"] label p {
+        color: #38BDF8 !important; /* תכלת זוהר */
+        font-size: 1.1rem !important;
+        font-weight: 600 !important;
+    }
+    div[data-testid="stTextInput"] input {
+        background-color: #1E293B !important;
+        color: #FFFFFF !important;
+        border: 2px solid #334155 !important;
+        border-radius: 12px !important;
+        padding: 15px !important;
+        font-size: 1.2rem !important;
+        text-align: right !important;
+    }
+    div[data-testid="stTextInput"] input:focus {
+        border-color: #38BDF8 !important;
+        box-shadow: 0 0 10px rgba(56, 189, 248, 0.3) !important;
+    }
+
+    /* עיצוב הלשוניות העליונות */
+    div[data-testid="stTabs"] button {
+        background-color: #1E293B;
         border: 1px solid #334155;
-        transition: all 0.25s ease;
+        border-radius: 20px;
+        color: #94A3B8;
+        padding: 10px 20px;
+        margin: 0 5px;
+        font-weight: bold;
     }
-    .stTabs [aria-selected="true"] { 
+    div[data-testid="stTabs"] button[aria-selected="true"] {
         background: linear-gradient(135deg, #3B82F6, #1D4ED8) !important;
         color: #FFFFFF !important;
         border: none;
-        box-shadow: 0 8px 20px rgba(59, 130, 246, 0.4);
     }
     
-    /* עיצוב כרטיסיות צפות (Cards) לאלמנטים השונים */
-    .custom-card {
-        background-color: #1E293B;
-        border-radius: 24px;
-        padding: 22px;
-        border: 1px solid #334155;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-        margin-bottom: 20px;
-    }
-    
-    /* עיצוב תיבות הטקסט והקלטים */
-    .stTextInput input {
-        background-color: #0F172A !important;
-        color: #F8FAFC !important;
-        border-radius: 16px !important;
-        border: 2px solid #334155 !important;
-        padding: 14px !important;
-        font-size: 16px !important;
-        transition: all 0.3s;
-    }
-    .stTextInput input:focus {
-        border-color: #3B82F6 !important;
-        box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15) !important;
-    }
-    
-    /* כפתורי ענק מעוצבים למובייל בריצה */
+    /* עיצוב כפתורי הענק */
     div.stButton > button { 
-        border-radius: 20px; 
-        font-weight: 700; 
-        font-size: 18px; 
-        padding: 16px 20px; 
-        border: none;
+        border-radius: 16px !important; 
+        font-weight: 800 !important; 
+        font-size: 1.2rem !important; 
+        padding: 15px !important; 
+        border: none !important;
         width: 100% !important;
-        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        text-transform: uppercase;
+        color: white !important;
+        margin-top: 10px !important;
     }
     
-    /* כפתור התחלה - ירוק זוהר */
-    div.stButton > button:contains("🟢") {
+    /* צבעים ספציפיים לכפתורים לפי הטקסט שלהם */
+    div.stButton > button:contains("התחל ריצה") {
         background: linear-gradient(135deg, #10B981, #059669) !important;
-        color: white !important;
-        box-shadow: 0 6px 20px rgba(16, 185, 129, 0.3) !important;
+        box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4) !important;
     }
-    
-    /* כפתור הקפה - צהוב ספורטיבי */
-    div.stButton > button:contains("🟡") {
+    div.stButton > button:contains("רשום הקפה") {
         background: linear-gradient(135deg, #F59E0B, #D97706) !important;
-        color: white !important;
-        box-shadow: 0 6px 20px rgba(245, 158, 11, 0.2) !important;
+        box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3) !important;
     }
-    
-    /* כפתור סיום - אדום אגרסיבי */
-    div.stButton > button:contains("🔴") {
+    div.stButton > button:contains("סיימתי ריצה") {
         background: linear-gradient(135deg, #EF4444, #DC2626) !important;
-        color: white !important;
-        box-shadow: 0 6px 20px rgba(239, 68, 68, 0.3) !important;
+        box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4) !important;
     }
     
-    div.stButton > button:active {
-        transform: scale(0.96);
-    }
-    
-    /* עיצוב כרטיסיות נתונים עליונות (KPIs) במנהל */
-    [data-testid="metric-container"] {
+    /* מדדים של המנהל (KPI) */
+    div[data-testid="metric-container"] {
         background-color: #1E293B;
-        border-radius: 20px;
-        padding: 16px;
         border: 1px solid #334155;
+        border-radius: 16px;
+        padding: 15px;
         text-align: center;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
     }
-    [data-testid="stMetricValue"] { 
-        font-size: 2.2rem !important; 
+    div[data-testid="stMetricValue"] {
+        color: #38BDF8 !important;
+        font-size: 2.2rem !important;
         font-weight: 800 !important;
-        color: #38BDF8 !important; 
-    }
-    [data-testid="stMetricLabel"] {
-        color: #94A3B8 !important;
-        font-size: 14px !important;
     }
     
-    /* עיצוב טבלאות פרימיום חסין קטיעות למובייל */
-    .table-container {
-        overflow-x: auto;
-        border-radius: 18px;
-        border: 1px solid #334155;
-        box-shadow: 0 10px 25px rgba(0,0,0,0.15);
-        margin-top: 15px;
-    }
-    table { 
-        width: 100% !important; 
-        border-collapse: collapse; 
-        background-color: #1E293B;
-    }
-    thead th { 
-        background-color: #0F172A !important; 
-        color: #38BDF8 !important; 
-        padding: 16px 12px !important; 
-        text-align: right !important; 
-        font-weight: 700;
-        font-size: 15px;
-        border-bottom: 2px solid #334155;
-    }
-    tbody td { 
-        padding: 16px 12px !important; 
-        border-bottom: 1px solid #334155 !important; 
-        color: #E2E8F0 !important;
-        font-size: 15px;
-        white-space: nowrap;
-    }
-    tbody tr:last-child td { border-bottom: none; }
+    /* עיצוב טבלאות נקי */
+    table { width: 100% !important; background-color: #1E293B !important; color: white !important; border-radius: 10px; overflow: hidden; }
+    th { background-color: #0F172A !important; color: #38BDF8 !important; text-align: right !important; padding: 12px !important;}
+    td { padding: 12px !important; border-bottom: 1px solid #334155 !important; }
     
-    /* עיצוב הודעות מערכת */
-    .stAlert {
-        border-radius: 16px !important;
+    /* התראות והודעות (Success/Error/Info) */
+    div[data-testid="stAlert"] {
         background-color: #1E293B !important;
+        color: #F8FAFC !important;
         border: 1px solid #334155 !important;
+        border-radius: 12px !important;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# --- פונקציה לשליחת אימייל ---
 def send_email_notification(runner_name, duration, laps):
     try:
         sender_email = st.secrets.get("EMAIL_SENDER")
@@ -261,9 +186,9 @@ sheet = init_gsheets()
 if 'runners_db' not in st.session_state:
     st.session_state.runners_db = {}
 
-# מבנה עליון חלק ואסתטי
-st.markdown("<div class='main-title'>RunningClub Pro</div>", unsafe_allow_html=True)
-st.markdown("<div class='sub-title'>מערכת חכמה לניהול ואימוני ריצה</div>", unsafe_allow_html=True)
+# כותרת ראשית של האפליקציה
+st.title("🏃‍♂️ RunningClub Pro")
+st.markdown("<p style='text-align: center; color: #94A3B8; font-size: 1.1rem; margin-top: -15px; margin-bottom: 30px;'>מערכת ניהול ריצה חכמה</p>", unsafe_allow_html=True)
 
 if not sheet:
     st.error("⚠️ חיבור לענן נכשל. הנתונים לא יישמרו באקסל. ודא שהסודות שמורים ב-Streamlit.")
@@ -271,11 +196,9 @@ if not sheet:
 tab_runners, tab_admin = st.tabs(["📱 אזור הרצים", "📊 דשבורד מנהל"])
 
 with tab_runners:
-    # עטיפת ממשק הרץ בתוך קופסה מעוצבת
-    st.markdown("<div class='custom-card'>", unsafe_allow_html=True)
-    st.markdown("<h4 style='color: #38BDF8; margin-top:0; margin-bottom:15px;'>⏱️ רישום וזינוק אישי</h4>", unsafe_allow_html=True)
+    st.subheader("⏱️ רישום וזינוק אישי")
     
-    current_runner_input = st.text_input("הקלד/י שם מלא ולחץ/י Enter במסך המקלדת:")
+    current_runner_input = st.text_input("הקלד/י שם מלא ולחץ/י Enter:")
     current_runner = current_runner_input.strip()
 
     if current_runner:
@@ -286,13 +209,12 @@ with tab_runners:
         location_allowed = True
 
         if runner_data["start"] is None:
-            st.markdown("<br>", unsafe_allow_html=True)
             if st.button("🟢 התחל ריצה (זינוק!)", use_container_width=True, disabled=not location_allowed):
                 st.session_state.runners_db[current_runner]["start"] = datetime.now()
                 st.rerun()
                 
         elif runner_data["start"] is not None and runner_data["end"] is None:
-            st.markdown(f"<div style='background-color: rgba(59,130,246,0.1); border: 1px solid #3B82F6; padding:12px; border-radius:12px; color:#38BDF8; text-align:center; font-weight:600; margin-bottom:15px;'>⏱️ אתה על המסלול! זינוק: {runner_data['start'].strftime('%H:%M:%S')}</div>", unsafe_allow_html=True)
+            st.info(f"⏱️ מעולה! זינקת בשעה: {runner_data['start'].strftime('%H:%M:%S')}")
             
             if st.button("🟡 רשום הקפה / זמן ביניים", use_container_width=True):
                 lap_time = datetime.now()
@@ -301,10 +223,9 @@ with tab_runners:
                 st.toast(f"הקפה נרשמה: {str(lap_duration).split('.')[0]}", icon="⏱️")
             
             if runner_data["laps"]:
-                st.markdown("<p style='color:#94A3B8; margin-top:10px; font-size:14px;'>זמני ביניים שנרשמו:</p>", unsafe_allow_html=True)
-                st.write(runner_data["laps"])
+                st.write("זמני ביניים:", runner_data["laps"])
                 
-            st.markdown("<br><hr style='border-color:#334155;'><br>", unsafe_allow_html=True)
+            st.markdown("<br>", unsafe_allow_html=True)
             
             if st.button("🔴 סיימתי ריצה! (עצור שעון)", use_container_width=True, disabled=not location_allowed):
                 end_time = datetime.now()
@@ -325,7 +246,7 @@ with tab_runners:
                             str(runner_data["laps"])
                         ]
                         sheet.append_row(row_data)
-                        st.toast("✅ הנתונים נשלחו בהצלחה לגיליון האקסל!", icon="☁️")
+                        st.toast("✅ נשמר בהצלחה בענן!", icon="☁️")
                     except Exception as e:
                         st.error(f"שגיאה בשליחה: {e}")
                 
@@ -335,15 +256,12 @@ with tab_runners:
                 
         else:
             final_anim = str(runner_data['duration']).split('.')[0]
-            st.markdown("<br>", unsafe_allow_html=True)
-            st.markdown(f"<div style='background: linear-gradient(135deg, #064E3B, #065F46); padding: 25px; border-radius: 20px; text-align:center; border: 1px solid #10B981;'><h2 style='color: #34D399; margin:0; font-weight:700;'>כל הכבוד! סיימת בהצלחה! 🎉</h2><h1 style='color: #FFFFFF; font-size: 3.5rem; margin-top: 10px; font-weight:800;'>{final_anim}</h1></div>", unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+            st.success("🎉 סיימת בהצלחה!")
+            st.markdown(f"<h1 style='color: #10B981; font-size: 3.5rem;'>{final_anim}</h1>", unsafe_allow_html=True)
 
 with tab_admin:
-    st.markdown("<div class='custom-card'>", unsafe_allow_html=True)
-    st.markdown("<h4 style='color: #38BDF8; margin-top:0; margin-bottom:15px;'>🔒 אבטחת מנהל</h4>", unsafe_allow_html=True)
+    st.subheader("🔒 מרכז שליטה")
     admin_pass = st.text_input("סיסמת מנהל:", type="password")
-    st.markdown("</div>", unsafe_allow_html=True)
     
     if admin_pass == "1234":
         records = []
@@ -353,7 +271,7 @@ with tab_admin:
                 records.append({
                     "שם הרץ": name,
                     "שעת התחלה": data["start"].strftime("%H:%M:%S"),
-                    "שעת סיום": data["end"].strftime("%H:%M:%S") if data["end"] else "🏃‍♂️ על המסלול",
+                    "שעת סיום": data["end"].strftime("%H:%M:%S") if data["end"] else "רץ כעת",
                     "זמן נטו": str(data["duration"]).split('.')[0] if data["duration"] else "-",
                     "הקפות": len(data["laps"]),
                     "_sort_val": total_sec 
@@ -364,35 +282,26 @@ with tab_admin:
             df_finished = df[df["זמן נטו"] != "-"].sort_values(by="_sort_val").drop(columns=["_sort_val"])
             df_running = df[df["זמן נטו"] == "-"].drop(columns=["_sort_val"])
             
-            # קוביות מדדים יפהפיות
-            st.markdown("<br>", unsafe_allow_html=True)
             c1, c2, c3 = st.columns(3)
-            c1.metric("סה״כ זינקו", len(df))
-            c2.metric("סיימו ריצה", len(df_finished))
-            c3.metric("במסלול כעת", len(df_running))
+            c1.metric("זינקו", len(df))
+            c2.metric("סיימו", len(df_finished))
+            c3.metric("במסלול", len(df_running))
             
-            # טבלאות מותאמות מובייל בתוך קונטיינר גלול
             if not df_finished.empty:
-                st.markdown("<br><h4 style='color: #38BDF8; margin-bottom:5px;'>🏆 טבלת תוצאות (לפי המהיר ביותר)</h4>", unsafe_allow_html=True)
+                st.subheader("🏆 תוצאות (המהיר ביותר)")
                 df_finished = df_finished.rename(columns={"זמן נטו": "⏱️ נטו", "הקפות": "🔄 הקפות"})
                 df_finished.set_index("שם הרץ", inplace=True)
-                
-                st.markdown("<div class='table-container'>", unsafe_allow_html=True)
                 st.table(df_finished)
-                st.markdown("</div>", unsafe_allow_html=True)
                 
             if not df_running.empty:
-                st.markdown("<br><h4 style='color: #F59E0B; margin-bottom:5px;'>🏃‍♂️ רצים פעילים כעת</h4>", unsafe_allow_html=True)
+                st.subheader("🏃‍♂️ רצים כעת")
                 df_running.set_index("שם הרץ", inplace=True)
-                
-                st.markdown("<div class='table-container'>", unsafe_allow_html=True)
                 st.table(df_running)
-                st.markdown("</div>", unsafe_allow_html=True)
             
         else:
-            st.markdown("<div style='text-align:center; color:#94A3B8; padding:20px;'>טרם נרשמו זינוקים לאימון זה. המסלול פנוי! 💨</div>", unsafe_allow_html=True)
+            st.info("המסלול פנוי. טרם נרשמו זינוקים.")
             
-        st.markdown("<br><br>", unsafe_allow_html=True)
-        if st.button("🗑️ איפוס מערכת מלא (מחיקת זמנים זמניים)"):
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("🗑️ איפוס מערכת מלא (מחיקת זמנים)"):
             st.session_state.runners_db = {}
             st.rerun()
